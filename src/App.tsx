@@ -1,28 +1,54 @@
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from "react-router-dom";
 import Login from "./components/Login";
+import Register from "./components/Register";
+import UserProfile from "./components/UserProfile";
 import UserList from "./components/UserList";
-import UserDetail from "./components/UserDetail";
-import CreateUser from "./components/CreateUser";
-import PrivateRoute from "./components/PrivateRoute";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { useAuthStore } from "./store/authStore";
 
-function App() {
+const App: React.FC = () => {
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/user/create" element={<CreateUser />} />
-
-        <Route element={<PrivateRoute />}>
-          <Route path="/user/:id" element={<UserDetail />} />
-        </Route>
-
-        {/* Admin-only route */}
-        <Route element={<PrivateRoute isAdminRoute />}>
-          <Route path="/" element={<UserList />} />
-        </Route>
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute roleRequired="ADMIN">
+              <UserList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/profile" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
       </Routes>
     </Router>
   );
-}
+};
 
 export default App;

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useAuthStore } from "../store/authStore";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -10,23 +10,29 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
-    navigate("/");
+    try {
+      await login(email, password);
+      navigate("/profile");
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <input
-        type="text"
-        placeholder="Email"
+        type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+        required
       />
       <input
         type="password"
-        placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+        required
       />
       <button type="submit">Login</button>
     </form>

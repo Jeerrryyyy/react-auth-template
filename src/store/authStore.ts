@@ -1,77 +1,77 @@
 import { create } from "zustand";
-import axios from "../api/axiosConfig";
-import { Role } from "./userStore";
+import { persist } from "zustand/middleware";
+import axios from "../api/axios";
+
+export interface User {
+  id: string;
+  email: string;
+  role: "ADMIN" | "USER";
+}
 
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  userId: number | null;
-  role: Role;
+  user: User | null;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  refreshTokens: () => Promise<void>;
   logout: () => void;
+  refreshAuthToken: () => Promise<string>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: localStorage.getItem("accessToken"),
-  refreshToken: localStorage.getItem("refreshToken"),
-  userId: null,
-  role: Role.USER,
-
-  login: async (email, password) => {
-    try {
-      const response = await axios.post("/auth/login", { email, password });
-      const { accessToken, refreshToken, userId, role } = response.data;
-
-      set({
-        accessToken,
-        refreshToken,
-        userId,
-        role,
-      });
-
-      console.log(accessToken, refreshToken, userId, role)
-
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-    } catch (error) {
-      console.error("Login failed", error);
-    }
-  },
-
-  refreshTokens: async () => {
-    try {
-      const refreshToken = localStorage.getItem("refreshToken");
-      const response = await axios.post("/auth/refresh", {
-        headers: { Authorization: `Bearer ${refreshToken}` },
-      });
-
-      const { accessToken } = response.data;
-      set({ accessToken });
-
-      localStorage.setItem("accessToken", accessToken);
-    } catch {
-      set({
-        accessToken: null,
-        refreshToken: null,
-        userId: null,
-        role: Role.USER,
-      });
-
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-    }
-  },
-
-  logout: () => {
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
       accessToken: null,
       refreshToken: null,
-      userId: null,
-      role: Role.USER,
-    });
-
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-  },
-}));
+      user: null,
+      isAuthenticated: false,
+      login: async (email, password) => {
+        try {
+          const response = await axios.post<{
+            accessToken: string;
+            refreshToken: string;
+            user: User;
+          }>("/auth/login", { email, password });
+          set({
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
+            user: response.data.user,
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          console.error("Login failed:", error);
+          throw error;
+        }
+      },
+      logout: () => {
+        set({
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          isAuthenticated: false,
+        });
+      },
+      refreshAuthToken: async () => {
+        try {
+          const response = await axios.post<{ accessToken: string }>(
+            "/auth/refresh",
+            null,
+            {
+              headers: { Authorization: `Bearer ${get().refreshToken}` },
+            }
+          );
+          set({ accessToken: response.data.accessToken });
+          return response.data.accessToken;
+        } catch (error) {
+          console.error("Token refresh failed:", error);
+          get().logout();
+          throw error;
+        }
+      },
+    }),
+    {
+      name: "auth-storage",
+      getStorage: () => localStorage,
+    }
+  )
+);
